@@ -1,0 +1,198 @@
+-select* from PortfoilioProject..Covid_deaths
+
+--select* from PortfoilioProject..Covid_Vaccinations
+
+-- Finding out total covid cases against there population at specific locations
+
+select  count(total_cases) as total_cases, count(population) as population, location
+From PortfoilioProject..Covid_deaths
+group by location
+
+select location,date, total_cases, new_cases, total_deaths, population
+From PortfoilioProject..Covid_deaths
+order by 1,2
+
+
+-- Looking at the total cases vs total deaths
+
+select location, count(total_cases) as cases, count(total_deaths) as deaths
+from PortfoilioProject..Covid_deaths
+group by location
+
+-- calculating as percentage of total_cases vs total deaths 
+
+select location, total_cases, total_deaths, (total_deaths/total_cases)*100 as death_percentage
+from PortfoilioProject..Covid_deaths
+
+-- percentage as per location of deaths
+
+select location, total_cases, total_deaths, (total_deaths/total_cases)*100 as death_percentage
+from PortfoilioProject..Covid_deaths
+where location like '%india%'
+order by death_percentage
+
+
+
+select location, total_cases,population, total_deaths, (total_deaths/total_cases)*100 as death_percentage
+from PortfoilioProject..Covid_deaths
+where location like '%india%'
+order by death_percentage
+
+-- looking at the country with  highest infection rate compared to population
+
+select location, population, MAX(total_cases) as HigestInfectionCount, MAX((total_cases/population))*100 as percentage_infacted
+from PortfoilioProject..Covid_deaths
+group by location, population
+order by percentage_infacted desc
+
+-- shwoing Countries with heightest death count per population
+
+select location, population, MAX(cast(total_deaths as int)) as TotalDeathCount 
+from PortfoilioProject..Covid_deaths
+where continent is not null
+group by location, population
+order by TotalDeathCount desc
+
+-- Breaking it down by CONTINENT	
+
+select continent,MAX(cast(total_deaths as int)) as TotalDeathCount
+from PortfoilioProject..Covid_deaths
+where continent is not null	
+group by continent
+order by TotalDeathCount desc
+
+
+-- Global numbers
+
+select date, sum(new_cases) as total_cases, sum(cast(new_deaths as int)) as total_deaths, 
+sum(cast(new_deaths as int))/sum(new_cases) * 100 as deathPercentage
+from PortfoilioProject..Covid_deaths
+where continent is not null
+group by date
+order by 1,2
+
+-- Total globel number cases, deaths and death percentage
+
+select sum(new_cases) as total_cases, sum(cast(new_deaths as int)) as total_deaths, 
+sum(cast(new_deaths as int))/sum(new_cases) * 100 as deathPercentage
+from PortfoilioProject..Covid_deaths
+where continent is not null
+order by 1,2
+
+
+select * from PortfoilioProject..Covid_Vaccinations
+
+-- Query which increase numbers of vaccination everyday partition by locations and dates
+
+Select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+SUM(cast(vac.new_vaccinations as bigint)) OVER (Partition by dea.location order by dea.location, dea.date) as RollingPeopleVaccinated
+from PortfoilioProject..Covid_deaths dea
+join PortfoilioProject..Covid_Vaccinations vac
+	On dea.location = vac.location
+	and dea.date = vac.date
+where dea.continent is not null
+order by 2,3
+
+-- Finding out people get vaccinated as per location
+-- using cte 
+with popvsvac (continet, location, date, population, new_vaccinations, RollingPeopleVaccinated)
+as
+(
+Select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+SUM(cast(vac.new_vaccinations as bigint)) OVER (Partition by dea.location order by dea.location, dea.date) as RollingPeopleVaccinated
+from PortfoilioProject..Covid_deaths dea
+join PortfoilioProject..Covid_Vaccinations vac
+	On dea.location = vac.location
+	and dea.date = vac.date
+where dea.continent is not null
+--order by 2,3
+)
+Select *, (RollingPeopleVaccinated/population)*100  as Total_people_vacc_percentage
+from popvsvac
+
+-- Temp Table 
+-- inserting query into table
+Drop Table if exists #Percentage_Population_Vaccinated
+Create Table #Percentage_Population_Vaccinated
+(
+continent nvarchar(255),
+location nvarchar(255),
+date datetime,
+population numeric,
+new_vaccinations numeric,
+RollingPeopleVaccinated numeric
+)
+insert into #Percentage_Population_Vaccinated
+Select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+SUM(cast(vac.new_vaccinations as bigint)) OVER (Partition by dea.location order by dea.location, dea.date) as RollingPeopleVaccinated
+from PortfoilioProject..Covid_deaths dea
+join PortfoilioProject..Covid_Vaccinations vac
+	On dea.location = vac.location
+	and dea.date = vac.date
+where dea.continent is not null
+--order by 2,3
+
+Select *, (RollingPeopleVaccinated/population)*100  as Total_people_vacc_percentage
+from #Percentage_Population_Vaccinated
+
+-- Creating View to store data for later  visulizations
+USE PortfoilioProject
+go
+Create view PercentagePopulationVaccinated2 as
+Select dea.continent, dea.location, dea.date, dea.population, vac.new_vaccinations,
+SUM(cast(vac.new_vaccinations as bigint)) OVER (Partition by dea.location order by dea.location, dea.date) as RollingPeopleVaccinated
+from PortfoilioProject..Covid_deaths dea
+join PortfoilioProject..Covid_Vaccinations vac
+	On dea.location = vac.location
+	and dea.date = vac.date
+where dea.continent is not null
+--order by 2,3
+
+
+
+
+
+-------------------------------------------------------------------
+-----------------------------------------------------------
+-------------------------------------------------------------
+-------------------------------------------------------------------
+
+
+select SUM(new_cases) as total_cases, SUM(cast(new_deaths as int)) as total_deaths, SUM(cast(new_deaths as int))/SUM(New_Cases)*100 as DeathPercentage
+From PortfoilioProject..Covid_deaths
+--Where location like '%states%'
+where continent is not null 
+--Group By date
+order by 1,2
+
+-- 2. 
+
+-- We take these out as they are not inluded in the above queries and want to stay consistent
+-- European Union is part of Europe
+
+Select location, SUM(cast(new_deaths as int)) as TotalDeathCount
+From PortfoilioProject..Covid_deaths
+--Where location like '%states%'
+Where continent is null 
+and location not in ('World', 'European Union', 'International')
+Group by location
+order by TotalDeathCount desc
+
+
+-- 3.
+
+Select Location, Population, MAX(total_cases) as HighestInfectionCount,  Max((total_cases/population))*100 as PercentPopulationInfected
+From PortfoilioProject..Covid_deaths
+--Where location like '%states%'
+Group by Location, Population
+order by PercentPopulationInfected desc
+
+
+-- 4.
+
+
+Select Location, Population,date, MAX(total_cases) as HighestInfectionCount,  Max((total_cases/population))*100 as PercentPopulationInfected
+From PortfoilioProject..Covid_deaths
+--Where location like '%states%'
+Group by Location, Population, date
+order by PercentPopulationInfected desc
